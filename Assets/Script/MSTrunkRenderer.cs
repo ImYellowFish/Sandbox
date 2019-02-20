@@ -27,7 +27,10 @@ namespace MarchingSquare
 
         private void Awake()
         {
+            cellsPerRow = Mathf.ClosestPowerOfTwo(cellsPerRow);
             trunk = new Trunk(cellsPerRow, cellSize);
+            meshFilter = GetComponent<MeshFilter>();
+            InitGridValue(1f);
             UpdateMesh();
         }
         
@@ -37,13 +40,16 @@ namespace MarchingSquare
         public void UpdateMesh()
         {
             var mesh = meshFilter.mesh;
+            if(mesh == null){
+                mesh = new Mesh();
+            }
             trunk.RecalculateTrunkMesh(mesh);
             meshFilter.mesh = mesh;
         }
 
-        private void InitGridValue()
+        private void InitGridValue(float value)
         {
-
+            trunk.InitGridValue(value);
         }
     }
 }

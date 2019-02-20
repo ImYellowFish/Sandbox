@@ -17,7 +17,7 @@ namespace MarchingSquare {
         public int cellsPerRow;
 
         /// <summary>
-        /// log2(cellPerRow)
+        /// log2(cellsPerRow)
         /// </summary>
         public int cellsPerRowPowerOfTwo;
 
@@ -36,7 +36,8 @@ namespace MarchingSquare {
         /// </summary>
         public int[,] grid;
 
-        public int maxCellValue = 255;
+        public int maxCellValue = 256;
+        public int maxCellValuePowerOfTwo;
 
         private Dictionary<int, int> indexLookup = new Dictionary<int, int>();
         private List<Vector3> vertices = new List<Vector3>(100);
@@ -51,6 +52,8 @@ namespace MarchingSquare {
         {
             this.cellsPerRow = Mathf.ClosestPowerOfTwo(cellsPerRow);
             this.cellsPerRowPowerOfTwo = Mathf.RoundToInt(Mathf.Log(this.cellsPerRow, 2));
+            this.maxCellValue = Mathf.ClosestPowerOfTwo(this.maxCellValue);
+            this.maxCellValuePowerOfTwo = Mathf.RoundToInt(Mathf.Log(this.maxCellValue, 2));
             this.cellSize = cellSize;
             this.inverseCellSize = 1f / Mathf.Max(cellSize, Mathf.Epsilon);
             this.grid = new int[cellsPerRow + 1, cellsPerRow + 1];
@@ -62,18 +65,23 @@ namespace MarchingSquare {
             coord_y = Mathf.Min((int)(pos.y * inverseCellSize), cellsPerRow - 1);
         }
 
-        public void GetGridCoordAtPos(Vector2 pos, out int coord_x, out int coord_y)
+        public void GetGridIntCoordAtPos(Vector2 pos, out int coord_x, out int coord_y)
         {
             coord_x = Mathf.RoundToInt(pos.x * inverseCellSize);
             coord_y = Mathf.RoundToInt(pos.y * inverseCellSize);
         }
 
-        public void initGridValue(float value)
+        public Vector2 GetGridCoordAtPos(Vector2 pos)
+        {
+            return new Vector2(pos.x * inverseCellSize, pos.y * inverseCellSize);
+        }
+
+        public void InitGridValue(float value)
         {
             int v = (int)(value * maxCellValue);
-            for(int i = 0; i < grid.Length; i++)
+            for(int i = 0; i <= cellsPerRow; i++)
             {
-                for(int j = 0; j < grid.Length; j++)
+                for(int j = 0; j <= cellsPerRow; j++)
                 {
                     grid[i, j] = v;
                 }
@@ -83,15 +91,32 @@ namespace MarchingSquare {
         public float GetValueAtLocalPos(Vector2 pos)
         {
             int coord_x, coord_y;
-            GetGridCoordAtPos(pos, out coord_x, out coord_y);
+            GetGridIntCoordAtPos(pos, out coord_x, out coord_y);
             return grid[coord_x, coord_y] / (float)maxCellValue;
         }
 
         public void SetValueAtPos(Vector2 pos, float value)
         {
             int coord_x, coord_y;
-            GetGridCoordAtPos(pos, out coord_x, out coord_y);
-            grid[coord_x, coord_y] = (int)(value * maxCellValue); 
+            GetGridIntCoordAtPos(pos, out coord_x, out coord_y);
+            SetValueAtCoord(coord_x, coord_y, value); 
+        }
+
+        public void SetValueAtCoord(int coord_x, int coord_y, float value){
+        	if(coord_x >= 0 && coord_x <= cellsPerRow &&
+        		coord_y >= 0 && coord_y <= cellsPerRow){
+
+        		grid[coord_x, coord_y] = (int)(Mathf.Clamp01(value) * maxCellValue);
+        	}
+        }
+
+        public void AddValueAtCoord(int coord_x, int coord_y, float value){
+        	if(coord_x >= 0 && coord_x <= cellsPerRow &&
+        		coord_y >= 0 && coord_y <= cellsPerRow){
+        		
+        		grid[coord_x, coord_y] += (int)(value * maxCellValue);
+        		grid[coord_x, coord_y] = Mathf.Clamp(grid[coord_x, coord_y], 0, maxCellValue);
+        	}
         }
 
         public void RecalculateTrunkMesh(Mesh mesh)
@@ -100,7 +125,7 @@ namespace MarchingSquare {
             vertices.Clear();
             triangles.Clear();
             int currentVertIndex = 0;
-            
+            int thresholdShift = maxCellValuePowerOfTwo - 1;
 
             for(int i = 0; i < cellsPerRow; i++)
             {
@@ -118,12 +143,12 @@ namespace MarchingSquare {
                         grid[i, j+1],
                     };
 
-                    int caseIndex = Mathf.Min(1, cellVerts[0]) + 
-                        (Mathf.Min(1, cellVerts[1]) << 1) + 
-                        (Mathf.Min(1, cellVerts[2]) << 2) + 
-                        (Mathf.Min(1, cellVerts[3]) << 3);
+                    int caseIndex = (cellVerts[0] >> thresholdShift & 1) + 
+                        ((cellVerts[1] >> thresholdShift & 1) << 1) + 
+                        ((cellVerts[2] >> thresholdShift & 1) << 2) + 
+                        ((cellVerts[3] >> thresholdShift & 1) << 3);
 
-                    //Debug.Log("caseIndex:" + caseIndex);
+                    // Debug.Log("caseIndex:" + caseIndex);
 
                     var vertsRaw = MarchingSquareData.vertices[caseIndex];
                     var trigRaw = MarchingSquareData.triangles[caseIndex];
