@@ -209,8 +209,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58f9a7cd532dca242aeee4a3c13ca398, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  brushSize: 1
+  brushSize: 0.2
+  brushIntensity: -0.2
+  mousePosRaw: {x: 0, y: 0, z: 0}
   mousePos: {x: 0, y: 0, z: 0}
+  brushType: 1
+  inputMode: 0
 --- !u!114 &211180008
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -222,14 +226,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5fdab17d7a61b444195f9e469c04c386, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cellsPerRow: 4
-  cellSize: 1
+  cellsPerRow: 32
+  cellSize: 0.1
   trunk:
     cellsPerRow: 0
     cellsPerRowPowerOfTwo: 0
     cellSize: 0
     inverseCellSize: 0
-    maxCellValue: 255
+    maxCellValue: 256
+    maxCellValuePowerOfTwo: 0
 --- !u!23 &211180009
 MeshRenderer:
   m_ObjectHideFlags: 0

@@ -36,7 +36,7 @@ namespace MarchingSquare {
         /// </summary>
         public int[,] grid;
 
-        public int maxCellValue = 256;
+        public int maxCellValue = 25536;
         public int maxCellValuePowerOfTwo;
 
         private Dictionary<int, int> indexLookup = new Dictionary<int, int>();
@@ -52,7 +52,7 @@ namespace MarchingSquare {
         {
             this.cellsPerRow = Mathf.ClosestPowerOfTwo(cellsPerRow);
             this.cellsPerRowPowerOfTwo = Mathf.RoundToInt(Mathf.Log(this.cellsPerRow, 2));
-            this.maxCellValue = Mathf.ClosestPowerOfTwo(this.maxCellValue);
+            this.maxCellValue = Mathf.ClosestPowerOfTwo(this.maxCellValue) - 1;
             this.maxCellValuePowerOfTwo = Mathf.RoundToInt(Mathf.Log(this.maxCellValue, 2));
             this.cellSize = cellSize;
             this.inverseCellSize = 1f / Mathf.Max(cellSize, Mathf.Epsilon);
@@ -125,8 +125,7 @@ namespace MarchingSquare {
             vertices.Clear();
             triangles.Clear();
             int currentVertIndex = 0;
-            int thresholdShift = maxCellValuePowerOfTwo - 1;
-
+            
             for(int i = 0; i < cellsPerRow; i++)
             {
                 for (int j = 0; j < cellsPerRow; j++)
@@ -143,12 +142,12 @@ namespace MarchingSquare {
                         grid[i, j+1],
                     };
 
-                    int caseIndex = (cellVerts[0] >> thresholdShift & 1) + 
-                        ((cellVerts[1] >> thresholdShift & 1) << 1) + 
-                        ((cellVerts[2] >> thresholdShift & 1) << 2) + 
-                        ((cellVerts[3] >> thresholdShift & 1) << 3);
+                    int caseIndex = Mathf.Max(0, cellVerts[0] - maxCellValue + 1) + 
+                        (Mathf.Max(0, cellVerts[1] - maxCellValue + 1) << 1) + 
+                        (Mathf.Max(0, cellVerts[2] - maxCellValue + 1) << 2) + 
+                        (Mathf.Max(0, cellVerts[3] - maxCellValue + 1) << 3);
 
-                    // Debug.Log("caseIndex:" + caseIndex);
+                    //Debug.Log("caseIndex:" + caseIndex);
 
                     var vertsRaw = MarchingSquareData.vertices[caseIndex];
                     var trigRaw = MarchingSquareData.triangles[caseIndex];
@@ -176,9 +175,10 @@ namespace MarchingSquare {
                             }
                             else
                             {
-                                float t = (float)cellVerts[anchors[1]] / maxCellValue / 2;
-                                var pos_a = MarchingSquareData.cellVertPos[anchors[0]];
-                                var pos_b = MarchingSquareData.cellVertPos[anchors[1]];
+                                float t = (float)cellVerts[anchors[0]] / maxCellValue;
+                                //Debug.Log("Anchor " + t + "cell, " + anchors[1] + ", value:" + cellVerts[anchors[0]]);
+                                var pos_b = MarchingSquareData.cellVertPos[anchors[0]];
+                                var pos_a = MarchingSquareData.cellVertPos[anchors[1]];
                                 float lerped_x = Mathf.Lerp(pos_a[0], pos_b[0], t);
                                 float lerped_y = Mathf.Lerp(pos_a[1], pos_b[1], t);
                                 var vertPos = GetCellVertPos(lerped_x, lerped_y, i, j, cellSize);
