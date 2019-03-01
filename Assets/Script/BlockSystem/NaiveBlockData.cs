@@ -39,6 +39,39 @@ namespace NaiveBlock
             new Vector3(0,1,1),
         };
 
+        public static List<Vector2> baseCubeUVs = new List<Vector2>()
+        {
+            new Vector2(0,0),
+            new Vector2(0,1),
+            new Vector2(1,1),
+            new Vector2(1,0),
+
+            new Vector2(0,0),
+            new Vector2(1,0),
+            new Vector2(1,1),
+            new Vector2(0,1),
+
+            new Vector2(0,0),
+            new Vector2(1,0),
+            new Vector2(1,1),
+            new Vector2(0,1),
+
+            new Vector2(1,0),
+            new Vector2(0,0),
+            new Vector2(0,1),
+            new Vector2(1,1),
+
+            new Vector2(1,0),
+            new Vector2(1,1),
+            new Vector2(0,1),
+            new Vector2(0,0),
+
+            new Vector2(1,0),
+            new Vector2(0,0),
+            new Vector2(0,1),
+            new Vector2(1,1),
+        };
+
         public static List<int> baseCubeTriangles = new List<int>()
         {
             0,1,2,
@@ -58,6 +91,12 @@ namespace NaiveBlock
 
             20,21,22,
             20,22,23,
+        };
+
+        public static List<int> quadTriangles = new List<int>()
+        {
+            0, 1, 2,
+            0, 2, 3,
         };
     }
 }

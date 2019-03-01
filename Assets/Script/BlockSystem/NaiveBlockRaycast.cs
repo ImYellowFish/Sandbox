@@ -6,6 +6,7 @@ namespace NaiveBlock {
     public class NaiveBlockRaycast : MonoBehaviour {
         private NaiveBlockTrunk trunk;
         public float distanceOffset = 0.01f;
+        public LayerMask layer;
 
         // Use this for initialization
         void Start() {
@@ -19,7 +20,7 @@ namespace NaiveBlock {
                 var cam = Camera.main;
                 var ray = cam.ScreenPointToRay(Input.mousePosition);
                 RaycastHit hitInfo;
-                var isHit = Physics.Raycast(ray, out hitInfo);
+                var isHit = Physics.Raycast(ray, out hitInfo, layer.value);
                 if (isHit)
                 {
                     var pos = ray.GetPoint(hitInfo.distance + distanceOffset);

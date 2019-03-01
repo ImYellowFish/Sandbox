@@ -9,6 +9,7 @@ namespace NaiveBlock
         public Cube[,,] cubes;
         public int trunkSize = 10;
         public float cubeSize = 1f;
+        public int trunkHeight = 10;
         public Material sharedMaterial;
 
         private MeshFilter meshFilter;
@@ -17,7 +18,7 @@ namespace NaiveBlock
 
         private void Awake()
         {
-            cubes = new Cube[trunkSize, trunkSize, trunkSize];
+            cubes = new Cube[trunkSize, trunkHeight, trunkSize];
             SetCubesValue(1);
             meshFilter = gameObject.AddComponent<MeshFilter>();
             meshRenderer = gameObject.AddComponent<MeshRenderer>();
@@ -30,7 +31,7 @@ namespace NaiveBlock
         {
             for (int i = 0; i < trunkSize; i++)
             {
-                for (int j = 0; j < trunkSize; j++)
+                for (int j = 0; j < trunkHeight; j++)
                 {
                     for (int k = 0; k < trunkSize; k++)
                     {
@@ -55,9 +56,10 @@ namespace NaiveBlock
             Mesh m = new Mesh();
             List<Vector3> vertices = new List<Vector3>();
             List<int> triangles = new List<int>();
+            List<Vector2> uvs = new List<Vector2>();
             for(int i = 0; i < trunkSize; i++)
             {
-                for(int j = 0; j < trunkSize; j++)
+                for(int j = 0; j < trunkHeight; j++)
                 {
                     for(int k = 0; k < trunkSize; k++)
                     {
@@ -72,6 +74,10 @@ namespace NaiveBlock
                         {
                             vertices.Add(vert + vert_offset);
                         }
+                        foreach(var uv in NaiveBlockData.baseCubeUVs)
+                        {
+                            uvs.Add(uv);
+                        }
                         foreach(var index in NaiveBlockData.baseCubeTriangles)
                         {
                             triangles.Add(index_offset + index);
@@ -81,6 +87,7 @@ namespace NaiveBlock
             }
             m.SetVertices(vertices);
             m.SetTriangles(triangles, 0);
+            m.SetUVs(0, uvs);
             m.RecalculateNormals();
             m.RecalculateBounds();
             meshFilter.mesh = m;
@@ -91,7 +98,7 @@ namespace NaiveBlock
         public bool IsInsideCube(int i, int j, int k)
         {
             return i >= 0 && i < trunkSize &&
-                j >= 0 && j < trunkSize &&
+                j >= 0 && j < trunkHeight &&
                 k >= 0 && k < trunkSize;
         }
 
