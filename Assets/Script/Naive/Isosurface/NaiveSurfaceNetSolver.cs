@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace IsoSurface
+namespace NaiveIsoSurface
 {
-    public class SurfaceNetSolver : MonoBehaviour
+    public class NaiveSurfaceNetSolver : MonoBehaviour
     {
         public bool debug_showVertOnly;
         public bool debug_noInterpolate;
@@ -254,8 +254,8 @@ namespace IsoSurface
         private float GetCellDepthSum(Int3 coord, Vector3 averagedLocalPos, int dim)
         {
             float sum = 0;
-            int dim_1 = (dim + 1) % 3;
-            int dim_2 = (dim + 2) % 3;
+            //int dim_1 = (dim + 1) % 3;
+            //int dim_2 = (dim + 2) % 3;
             for (int i = 0; i < CELL_OFFSETS.Length; i++)
             {
                 var vertCoord = coord + CELL_OFFSETS[i];

@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace IsoSurface
+
+namespace FVoxel
 {
     [System.Serializable]
     public struct Int3
@@ -22,10 +23,11 @@ namespace IsoSurface
         {
             return new Int3(x, y, z);
         }
-        
+
         public int this[int index]
         {
-            get {
+            get
+            {
                 switch (index)
                 {
                     case 0:
@@ -58,9 +60,14 @@ namespace IsoSurface
             }
         }
 
-        public static Int3 operator+(Int3 a, Int3 b)
+        public static Int3 operator +(Int3 a, Int3 b)
         {
             return new Int3(a.x + b.x, a.y + b.y, a.z + b.z);
+        }
+
+        public static Int3 operator -(Int3 a, Int3 b)
+        {
+            return new Int3(a.x - b.x, a.y - b.y, a.z - b.z);
         }
 
         public Vector3 ToVector3()
@@ -98,26 +105,8 @@ namespace IsoSurface
         }
     }
 
-    public static class Utility
+    public class SwapBuffer2D
     {
-        public static string IterableToString(ICollection target)
-        {
-            string s = "List: ";
-            foreach(var num in target)
-            {
-                s += num + ", ";
-            }
-            return s;
-        }
 
-        public static string IterableToString(int[,] target, int x)
-        {
-            string s = "List: ";
-            for (int y = 0; y < target.GetLength(1); y++)
-            {
-                s += target[x,y] + ", ";
-            }
-            return s;
-        }
     }
 }

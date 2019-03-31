@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace IsoSurface {
+namespace NaiveIsoSurface {
     public class SurfaceNetTestor : MonoBehaviour {
-        SurfaceNetSolver solver;
+        NaiveSurfaceNetSolver solver;
         IsoGrid grid;
 
         public bool smoothGrid = false;
@@ -12,7 +12,7 @@ namespace IsoSurface {
         // Use this for initialization
         void Start() {
             grid = GetComponent<IsoGrid>();
-            solver = GetComponent<SurfaceNetSolver>();
+            solver = GetComponent<NaiveSurfaceNetSolver>();
             Test();
         }
 

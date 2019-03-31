@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace IsoSurface
+namespace NaiveIsoSurface
 {
     public class IsoGrid : MonoBehaviour
     {
