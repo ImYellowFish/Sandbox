@@ -15,16 +15,21 @@ namespace FVoxel {
             }
         }
 
+        private List<VoxelTrunk> affectedTrunkList = new List<VoxelTrunk>();
+
         private void Paint(Ray ray)
         {
             RaycastHit hitInfo;
             if (Physics.Raycast(ray, out hitInfo) && hitInfo.transform.CompareTag("Voxel"))
             {
-                var trunk = hitInfo.transform.GetComponent<VoxelTrunk>();
+                var collidedTrunk = hitInfo.transform.GetComponent<VoxelTrunk>();
                 var pos = hitInfo.point;
                 var brush = VoxelBrushLibrary.GetBrush(brushKey);
-                brush.Apply(trunk, pos);
-                trunk.Triangulate();
+                collidedTrunk.GetNearbyTrunksAtPos(pos, Vector3.one * brush.radius, affectedTrunkList);
+                foreach(var trunk in affectedTrunkList)
+                    brush.Apply(trunk, pos);
+                foreach (var trunk in affectedTrunkList)
+                    trunk.Triangulate();
             }
         }
     }

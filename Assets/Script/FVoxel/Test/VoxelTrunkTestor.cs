@@ -85,7 +85,23 @@ namespace FVoxel
                     }
                 }
             }
-            trunk.Triangulate();
+            //trunk.Triangulate();
+        }
+
+        [ContextMenu("Generate Full Cube")]
+        public void GenerateFullCubeImpl()
+        {
+            for (int i = 0; i < dimension.x; i++)
+            {
+                for (int j = 0; j < dimension.y; j++)
+                {
+                    for (int k = 0; k < dimension.z; k++)
+                    {
+                        data.fill[i, j, k] = FILL_VALUE_TYPE.MaxValue;
+                    }
+                }
+            }
+            //trunk.Triangulate();
         }
     }
 }

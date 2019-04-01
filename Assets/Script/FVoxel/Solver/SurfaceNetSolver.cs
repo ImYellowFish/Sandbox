@@ -14,7 +14,7 @@ namespace FVoxel
         private List<Vector3> vertices;
         private List<int> triangles;
         private List<Vector3> normals;
-        private int[,,] vertIndexBuffer;
+        public Dictionary<int, int> vertIndexBuffer;
 
         // Lookups:
         // 8 cell vertices position arranged with vertex indices in 0~7
@@ -39,7 +39,7 @@ namespace FVoxel
             vertices = new List<Vector3>();
             triangles = new List<int>();
             normals = new List<Vector3>();
-            vertIndexBuffer = new int[dimension.x, dimension.y, dimension.z];
+            vertIndexBuffer = new Dictionary<int, int>();
         }
 
         public void ResetSolver()
@@ -50,28 +50,19 @@ namespace FVoxel
             normals.Clear();
 
             // Reset mesh vertex index lookup
-            vertIndexBuffer = new int[dimension.x, dimension.y, dimension.z];
-            for (int i = 0; i < dimension.x; i++)
-            {
-                for (int j = 0; j < dimension.y; j++)
-                {
-                    for (int k = 0; k < dimension.z; k++)
-                    {
-                        vertIndexBuffer[i, j, k] = -1;
-                    }
-                }
-            }
+            vertIndexBuffer.Clear();
         }
 
         public override void Solve(Mesh mesh)
         {
             ResetSolver();
+            AddCrossBoundaryVertices();
 
-            for (int i = 0; i < dimension.x - 1; i++)
+            for (int i = 0; i < dimension.x; i++)
             {
-                for (int j = 0; j < dimension.y - 1; j++)
+                for (int j = 0; j < dimension.y; j++)
                 {
-                    for (int k = 0; k < dimension.z - 1; k++)
+                    for (int k = 0; k < dimension.z; k++)
                     {
                         SolveCell(new Int3(i, j, k));
                     }
@@ -99,14 +90,14 @@ namespace FVoxel
             var intersections = intersectionVertLookup[cellFillsMask];
 
             // store vertex index
-            vertIndexBuffer[cellCoord.x, cellCoord.y, cellCoord.z] = vertices.Count;
+            SetVertIndexAtCoord(cellCoord, vertices.Count);
 
             // Calculate mesh vertex position
             Vector3 averagedLocalPos = GetAverageIntersection(cellFillValues, intersections);
             Vector3 averagedWorldPos = Vector3.Scale(averagedLocalPos, data.cellSize) + GetCellOriginPos(cellCoord);
             vertices.Add(averagedWorldPos);
 
-            normals.Add(ComputeCellNormal(cellCoord, averagedLocalPos));
+            normals.Add(ComputeCellNormal(cellCoord, cellFillValues, averagedLocalPos));
             // Add triangles in three dimensions
             for (int axis = 0; axis < 3; axis++)
             {
@@ -115,16 +106,11 @@ namespace FVoxel
                     continue;
                 int axis_1 = (axis + 1) % 3;
                 int axis_2 = (axis + 2) % 3;
-                if (cellCoord[axis_1] == 0 || cellCoord[axis_2] == 0)
-                {
-                    // Skip if on boundary
-                    continue;
-                }
 
-                var vi0 = GetCellVertexIndex(cellCoord);
-                var vi1 = GetCellVertexIndex(cellCoord.Offset(axis_1, -1));
-                var vi2 = GetCellVertexIndex(cellCoord.Offset(axis_1, -1).Offset(axis_2, -1));
-                var vi3 = GetCellVertexIndex(cellCoord.Offset(axis_2, -1));
+                var vi0 = GetVertIndexAtCoord(cellCoord);
+                var vi1 = GetVertIndexAtCoord(cellCoord.Offset(axis_1, -1));
+                var vi2 = GetVertIndexAtCoord(cellCoord.Offset(axis_1, -1).Offset(axis_2, -1));
+                var vi3 = GetVertIndexAtCoord(cellCoord.Offset(axis_2, -1));
                 if (vi0 < 0 || vi1 < 0 || vi2 < 0 || vi3 < 0)
                 {
                     continue;
@@ -141,6 +127,66 @@ namespace FVoxel
                 }
             }
 
+        }
+
+        private void AddCrossBoundaryVertices()
+        {
+            for(int axis = 0; axis < 3; axis++)
+            {
+                int axis_1 = (axis + 1) % 3;
+                int axis_2 = (axis + 2) % 3;
+                // Add diagonal
+                for (int i = 0; i < dimension[axis]; i++)
+                {
+                    Int3 cellCoord = Int3.Zero;
+                    cellCoord[axis] = i;
+                    cellCoord[axis_1] = -1;
+                    cellCoord[axis_2] = -1;
+
+                    Vector3 vertexPosOffset = Vector3.zero;
+                    vertexPosOffset[axis_1] = -trunk.trunkSize[axis_1];
+                    vertexPosOffset[axis_2] = -trunk.trunkSize[axis_2];
+                    AddCrossBoundaryVertexAtCell(cellCoord, vertexPosOffset);
+                }
+
+                // Add adjacent
+                for (int j = 0; j < dimension[axis_1]; j++)
+                {
+                    for (int k = 0; k < dimension[axis_2]; k++)
+                    {
+                        Int3 cellCoord = Int3.Zero;
+                        cellCoord[axis] = -1;
+                        cellCoord[axis_1] = j;
+                        cellCoord[axis_2] = k;
+
+                        Vector3 vertexPosOffset = Vector3.zero;
+                        vertexPosOffset[axis] = -trunk.trunkSize[axis];
+                        AddCrossBoundaryVertexAtCell(cellCoord, vertexPosOffset);
+                    }
+                }
+            }
+        }
+
+        private void AddCrossBoundaryVertexAtCell(Int3 cellCoord, Vector3 vertexPosOffset)
+        {
+            VoxelTrunk otherTrunk;
+            // Get boundary cell info
+            var otherCoord = trunk.GetCrossBoundaryCellInfo(cellCoord, out otherTrunk);
+            if (otherTrunk == null)
+                return;
+            // Get boundary vertex info
+            var otherSolver = otherTrunk.solver as SurfaceNetTrigSolver;
+            var otherVertIndex = otherSolver.GetVertIndexAtCoord(otherCoord);
+            if (otherVertIndex < 0)
+                // No vertex at this cell, skip.
+                return;
+            var vertexPos = otherSolver.vertices[otherVertIndex];
+            vertexPos += vertexPosOffset;
+            var vertexNormal = otherSolver.normals[otherVertIndex];
+            // Add boundary vertex to buffer
+            SetVertIndexAtCoord(cellCoord, vertices.Count);
+            vertices.Add(vertexPos);
+            normals.Add(vertexNormal);
         }
 
         private int GetCellFillsMask(Int3 cellCoord)
@@ -160,21 +206,14 @@ namespace FVoxel
             return Vector3.Scale(data.cellSize, coord.ToVector3());
         }
 
-        private Vector3 ComputeCellNormal(Int3 cellCoord, Vector3 averagedLocalPos)
+        private Vector3 ComputeCellNormal(Int3 cellCoord, FILL_VALUE_TYPE[] cellFillValues, Vector3 averagedLocalPos)
         {
             Vector3 normal;
-            //float wx1 = averagedLocalPos.x;
-            //float wx0 = 1f - wx1;
-            //float wy1 = averagedLocalPos.y;
-            //float wy0 = 1f - wy1;
-            //float wz1 = averagedLocalPos.z;
-            //float wz0 = 1f - wz1;
+            // Smoother normal
             normal.x = (GetCellFillsSum(cellCoord.Offset(-1, 0, 0), averagedLocalPos, 0) -
                 GetCellFillsSum(cellCoord.Offset(1, 0, 0), averagedLocalPos, 0));
-
             normal.y = (GetCellFillsSum(cellCoord.Offset(0, -1, 0), averagedLocalPos, 1) -
                 GetCellFillsSum(cellCoord.Offset(0, 1, 0), averagedLocalPos, 1));
-
             normal.z = (GetCellFillsSum(cellCoord.Offset(0, 0, -1), averagedLocalPos, 2) -
                 GetCellFillsSum(cellCoord.Offset(0, 0, 1), averagedLocalPos, 2));
 
@@ -189,9 +228,14 @@ namespace FVoxel
             for (int i = 0; i < cellOffsetsLookup.Length; i++)
             {
                 var vertCoord = coord + cellOffsetsLookup[i];
-                //float weight = Mathf.Abs(1f - CELL_OFFSETS[i][dim_1] - averagedLocalPos[dim_1]) *
-                //    Mathf.Abs(1f - CELL_OFFSETS[i][dim_2] - averagedLocalPos[dim_2]);
-                sum += data.GetFill(vertCoord.Clamp(Int3.Zero, dimension.Offset(-1, -1, -1)));
+                if (data.ContainsCell(vertCoord))
+                {
+                    sum += data.GetFill(vertCoord);
+                }
+                else
+                {
+                    sum += data.GetCrossBoundaryFill(vertCoord);
+                }
             }
             return sum;
         }
@@ -205,13 +249,7 @@ namespace FVoxel
             triangles.Add(vi3);
             triangles.Add(vi0);
         }
-
-        private int GetCellVertexIndex(Int3 coord)
-        {
-            //Debug.Log(coord);
-            return vertIndexBuffer[coord.x, coord.y, coord.z];
-        }
-
+        
         private Vector3 GetAverageIntersection(FILL_VALUE_TYPE[] cellFills, List<int> intersectionVertList)
         {
             Vector3 average = Vector3.zero;
@@ -243,10 +281,65 @@ namespace FVoxel
             for (int i = 0; i < cellOffsetsLookup.Length; i++)
             {
                 var vertCoord = coord + cellOffsetsLookup[i];
-                cellFills[i] = data.GetFill(vertCoord);
+                if (vertCoord < dimension)
+                {
+                    // Internel cells
+                    cellFills[i] = data.GetFill(vertCoord);
+                }
+                else
+                {
+                    // Boundary cells
+                    cellFills[i] = data.GetCrossBoundaryFill(vertCoord);
+                }
                 cellFillsMask += (cellFills[i] >= data.fillThreshold ? (1 << i) : 0);
             }
             return cellFillsMask;
+        }
+
+        private int GetVertIndexBufferKey(Int3 coord)
+        {
+            //Debug.Log("Coord: " + coord + ", Key:" + (coord.x + coord.y << 8 + coord.z << 16));
+            int key = 0;
+            if(coord.x >= 0)
+            {
+                key += coord.x;
+            }
+            else
+            {
+                key += coord.x + (1 << 9);
+            }
+            if(coord.y >= 0)
+            {
+                key += (Mathf.Abs(coord.y) << 10);
+            }
+            else
+            {
+                key += (Mathf.Abs(coord.y) << 10) + (1 << 19);
+            }
+            if(coord.z >= 0)
+            {
+                key += (Mathf.Abs(coord.z) << 20);
+            }
+            else
+            {
+                key += (Mathf.Abs(coord.z) << 20) + (1 << 29);
+            }
+            return key;
+        }
+        
+        private void SetVertIndexAtCoord(Int3 coord, int value)
+        {
+            vertIndexBuffer[GetVertIndexBufferKey(coord)] = value;
+        }
+
+        private int GetVertIndexAtCoord(Int3 coord)
+        {
+            int key = GetVertIndexBufferKey(coord);
+            if (vertIndexBuffer.ContainsKey(key))
+            {
+                return vertIndexBuffer[key];
+            }
+            return -1;
         }
     }
 }

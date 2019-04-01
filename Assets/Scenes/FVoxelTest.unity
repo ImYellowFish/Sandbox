@@ -203,6 +203,7 @@ MonoBehaviour:
   cellSize: {x: 0.1, y: 0.1, z: 0.1}
   data:
     fillThreshold: 0
+    trunk: {fileID: 0}
     dimension:
       x: 0
       y: 0
@@ -213,6 +214,11 @@ MonoBehaviour:
   meshRenderer: {fileID: 0}
   meshFilter: {fileID: 0}
   meshCollider: {fileID: 0}
+  world: {fileID: 0}
+  coordinate:
+    x: 0
+    y: 0
+    z: 0
   triangleCount: 0
   mesh: {fileID: 0}
 --- !u!4 &876917421
@@ -298,13 +304,13 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 963431298}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -2}
+  m_LocalRotation: {x: 0.09431826, y: -0.90091765, z: 0.24680121, w: 0.3442973}
+  m_LocalPosition: {x: 5.22, y: 2.1, z: 4.07}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 0
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 30.64, y: -138.17, z: 0}
 --- !u!1 &1535601754
 GameObject:
   m_ObjectHideFlags: 0
@@ -398,8 +404,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 026d3e13bc8478f4f9463826e514c13a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  trunksPerRow: 4
-  material: {fileID: 2100000, guid: b9dce8804cbd34f4cb7d2387e057788b, type: 2}
+  worldDimension:
+    x: 4
+    y: 4
+    z: 4
+  material: {fileID: 2100000, guid: 40a93bbe68a92514e9299cf441685606, type: 2}
   trunkDimension:
     x: 10
     y: 10

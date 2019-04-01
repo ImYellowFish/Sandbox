@@ -13,7 +13,7 @@ namespace FVoxel {
         /// </summary>
         [System.NonSerialized]
         public FILL_VALUE_TYPE[,,] fill;
-
+        
         /// <summary>
         /// cells with fill values greater than this will be regarded as filled.
         /// </summary>
@@ -21,6 +21,11 @@ namespace FVoxel {
 
         public FILL_VALUE_TYPE fillMax { get { return FILL_VALUE_TYPE.MaxValue; } }
         public FILL_VALUE_TYPE fillMin { get { return FILL_VALUE_TYPE.MinValue; } }
+
+        /// <summary>
+        /// The trunk this data belongs to.
+        /// </summary>
+        public VoxelTrunk trunk;
 
         /// <summary>
         /// The cell count along x, y, z axis
@@ -37,16 +42,30 @@ namespace FVoxel {
         /// </summary>
         public bool isDirty = false;
 
-        public VoxelData(Int3 dimension, Vector3 cellSize)
+        public VoxelData(VoxelTrunk trunk, Int3 dimension, Vector3 cellSize)
         {
+            this.trunk = trunk;
             this.dimension = dimension;
             this.cellSize = cellSize;
             fill = new byte[dimension.x, dimension.y, dimension.z];
         }
 
+        public bool ContainsCell(Int3 coord)
+        {
+            return coord >= Int3.Zero && coord < dimension;
+        }
+
         public FILL_VALUE_TYPE GetFill(Int3 coord)
         {
-            return fill[coord.x, coord.y, coord.z];
+            try
+            {
+                return fill[coord.x, coord.y, coord.z];
+            }
+            catch (System.IndexOutOfRangeException e)
+            {
+                Debug.LogError("Coordinate is not inside trunk data:" + coord);
+                throw e;
+            }
         }
 
         public void SetFill(Int3 coord, FILL_VALUE_TYPE value)
@@ -65,11 +84,23 @@ namespace FVoxel {
             isDirty = true;
         }
 
-        public bool ContainsCell(Int3 coord)
+        /// <summary>
+        /// Get the fill value of a cell which belongs to neighboring trunks.
+        /// </summary>
+        public FILL_VALUE_TYPE GetCrossBoundaryFill(Int3 coord)
         {
-            return coord.x >= 0 && coord.x < dimension.x &&
-                coord.y >= 0 && coord.y < dimension.y &&
-                coord.z >= 0 && coord.z < dimension.z;
+            VoxelTrunk otherTrunk;
+            var otherCoord = trunk.GetCrossBoundaryCellInfo(coord, out otherTrunk);
+            if (otherTrunk != null)
+            {
+                //Debug.Log("Coord:" + coord + ", OtherCoord:" + otherCoord + ", Value:" + otherTrunk.data.GetFill(otherCoord));
+                //Debug.Log("Trunk:" + trunk.coordinate + ", otherTrunk:" + otherTrunk.coordinate);
+                return otherTrunk.data.GetFill(otherCoord);
+            }
+            else
+            {
+                return FILL_VALUE_TYPE.MinValue;
+            }
         }
     }
 }

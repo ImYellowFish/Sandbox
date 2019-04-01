@@ -70,6 +70,26 @@ namespace FVoxel
             return new Int3(a.x - b.x, a.y - b.y, a.z - b.z);
         }
 
+        public static bool operator <(Int3 a, Int3 b)
+        {
+            return a.x < b.x && a.y < b.y && a.z < b.z;
+        }
+
+        public static bool operator >(Int3 a, Int3 b)
+        {
+            return a.x > b.x && a.y > b.y && a.z > b.z;
+        }
+
+        public static bool operator <=(Int3 a, Int3 b)
+        {
+            return a.x <= b.x && a.y <= b.y && a.z <= b.z;
+        }
+
+        public static bool operator >=(Int3 a, Int3 b)
+        {
+            return a.x >= b.x && a.y >= b.y && a.z >= b.z;
+        }
+
         public Vector3 ToVector3()
         {
             return new Vector3(x, y, z);

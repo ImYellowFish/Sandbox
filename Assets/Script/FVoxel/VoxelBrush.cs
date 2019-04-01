@@ -16,7 +16,7 @@ namespace FVoxel
         public float radius;
         public float strength;
         public AnimationCurve curve;
-
+        
         public override void Apply(VoxelTrunk trunk, Vector3 centerPosition)
         {
             var centerCoord = trunk.GetCoordByWorldPos(centerPosition);
