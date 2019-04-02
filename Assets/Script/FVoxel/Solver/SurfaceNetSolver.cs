@@ -57,12 +57,14 @@ namespace FVoxel
         {
             ResetSolver();
             AddCrossBoundaryVertices();
+            Int3 solveRegionMin = Int3.Zero;
+            Int3 solveRegionMax = dimension.Offset(-1,-1,-1);
 
-            for (int i = 0; i < dimension.x; i++)
+            for (int i = solveRegionMin.x; i <= solveRegionMax.x; i++)
             {
-                for (int j = 0; j < dimension.y; j++)
+                for (int j = solveRegionMin.y; j <= solveRegionMax.y; j++)
                 {
-                    for (int k = 0; k < dimension.z; k++)
+                    for (int k = solveRegionMin.z; k <= solveRegionMax.z; k++)
                     {
                         SolveCell(new Int3(i, j, k));
                     }
@@ -75,6 +77,28 @@ namespace FVoxel
             mesh.SetNormals(normals);
         }
 
+
+        public override void SolveIncrement(Mesh mesh)
+        {
+            Int3 solveRegionMin = Int3.Max(data.dirtyRegionMin.Offset(-1, -1, -1), Int3.Zero);
+            Int3 solveRegionMax = Int3.Max(data.dirtyRegionMax.Offset(1, 1, 1), dimension.Offset(-1, -1, -1));
+
+            for (int i = solveRegionMin.x; i <= solveRegionMax.x; i++)
+            {
+                for (int j = solveRegionMin.y; j <= solveRegionMax.y; j++)
+                {
+                    for (int k = solveRegionMin.z; k <= solveRegionMax.z; k++)
+                    {
+                        SolveCell(new Int3(i, j, k));
+                    }
+                }
+            }
+
+            mesh.Clear();
+            mesh.SetVertices(vertices);
+            mesh.SetTriangles(triangles, 0);
+            mesh.SetNormals(normals);
+        }
 
         private void SolveCell(Int3 cellCoord)
         {

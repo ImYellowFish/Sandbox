@@ -64,7 +64,7 @@ namespace FVoxel {
             mesh.RecalculateBounds();
             meshCollider.sharedMesh = mesh;
             triangleCount = mesh.triangles.Length / 3;
-            data.isDirty = false;
+            data.ClearDirty();
         }
 
         public Int3 GetCoordByWorldPos(Vector3 worldPosition)

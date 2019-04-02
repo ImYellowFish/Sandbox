@@ -90,6 +90,16 @@ namespace FVoxel
             return a.x >= b.x && a.y >= b.y && a.z >= b.z;
         }
 
+        public static Int3 Min(Int3 a, Int3 b)
+        {
+            return new Int3(Mathf.Min(a.x, b.x), Mathf.Min(a.y, b.y), Mathf.Min(a.z, b.z));
+        }
+
+        public static Int3 Max(Int3 a, Int3 b)
+        {
+            return new Int3(Mathf.Max(a.x, b.x), Mathf.Max(a.y, b.y), Mathf.Max(a.z, b.z));
+        }
+
         public Vector3 ToVector3()
         {
             return new Vector3(x, y, z);

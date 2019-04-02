@@ -49,6 +49,7 @@ namespace FVoxel
                     }
                 }
             }
+            data.SetAllDirty();
             trunk.Triangulate();
         }
 
@@ -67,6 +68,7 @@ namespace FVoxel
                     }
                 }
             }
+            data.SetAllDirty();
             trunk.Triangulate();
         }
 
@@ -85,6 +87,7 @@ namespace FVoxel
                     }
                 }
             }
+            data.SetAllDirty();
             //trunk.Triangulate();
         }
 
@@ -101,6 +104,7 @@ namespace FVoxel
                     }
                 }
             }
+            data.SetAllDirty();
             //trunk.Triangulate();
         }
     }
