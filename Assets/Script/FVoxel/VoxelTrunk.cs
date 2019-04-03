@@ -1,4 +1,6 @@
-﻿using System.Collections;
+﻿#define ENABLE_STOP_WATCH
+
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -12,6 +14,10 @@ namespace FVoxel {
 
         public Material material;
 
+        public enum SolverType { SurfaceNetFull, SurfaceNetStep, SurfaceNetLazy};
+        public SolverType solverType = SolverType.SurfaceNetFull;
+
+
         [HideInInspector]
         public MeshRenderer meshRenderer;
         [HideInInspector]
@@ -20,21 +26,22 @@ namespace FVoxel {
         public MeshCollider meshCollider;
 
         /// <summary>
-        /// The world that this trunk belongs to.
+        /// The voxel entity that this trunk belongs to.
         /// </summary>
         [Header("Readonly")]
-        public VoxelWorld world;
+        public VoxelEntity ownerEntity;
         /// <summary>
         /// The trunk's coordinate inside the world.
         /// TODO: change to VoxelEntity.
         /// </summary>
         public Int3 coordinate = Int3.Zero;
         public int triangleCount;
+        public int vertexCount;
         public Mesh mesh;
 
         public Vector3 trunkSize { get { return Vector3.Scale(cellSize, dimension.ToVector3()); } }
 
-        private void Awake()
+        public void Init()
         {
             meshRenderer = gameObject.AddComponent<MeshRenderer>();
             meshFilter = gameObject.AddComponent<MeshFilter>();
@@ -43,28 +50,40 @@ namespace FVoxel {
             mesh.name = "TrunkMesh";
             meshFilter.sharedMesh = mesh;
             meshCollider.sharedMesh = meshFilter.sharedMesh;
-        }
 
-        private void Start()
-        {
-            InitVoxelData();
-            meshRenderer.material = material;
-            solver = new SurfaceNetTrigSolver(this);
-        }
-
-        public void InitVoxelData()
-        {
             data = new VoxelData(this, dimension, cellSize);
+            meshRenderer.material = material;
+            switch (solverType)
+            {
+                case SolverType.SurfaceNetFull:
+                    solver = new SurfaceNetTrigSolver(this);
+                    break;
+                case SolverType.SurfaceNetStep:
+                    solver = new StepSurfaceNetTrigSolver(this);
+                    break;
+                case SolverType.SurfaceNetLazy:
+                    solver = new LazySurfaceNetTrigSolver(this);
+                    break;
+            }
         }
-
+        
         [ContextMenu("Triangulate")]
         public void Triangulate()
         {
+#if ENABLE_STOP_WATCH
+            var stopWatch = new System.Diagnostics.Stopwatch();
+            stopWatch.Start();
+#endif
             solver.Solve(mesh);
             mesh.RecalculateBounds();
             meshCollider.sharedMesh = mesh;
             triangleCount = mesh.triangles.Length / 3;
+            vertexCount = mesh.vertices.Length;
             data.ClearDirty();
+#if ENABLE_STOP_WATCH
+            stopWatch.Stop();
+            Debug.Log("TRIANGULATE TIME(ms):" + stopWatch.ElapsedMilliseconds);
+#endif
         }
 
         public Int3 GetCoordByWorldPos(Vector3 worldPosition)
@@ -79,7 +98,7 @@ namespace FVoxel {
         /// </summary>
         public Int3 GetCrossBoundaryCellInfo(Int3 cellCoord, out VoxelTrunk otherTrunk)
         {
-            if(world == null)
+            if(ownerEntity == null)
             {
                 // No world assigned, so there is no adjacent trunks info, return null value
                 otherTrunk = null;
@@ -99,7 +118,7 @@ namespace FVoxel {
                     otherCellCoord = otherCellCoord.Offset(dim, dimension[dim]);
                 }
             }
-            otherTrunk = world.GetTrunk(otherTrunkCoord);
+            otherTrunk = ownerEntity.GetTrunk(otherTrunkCoord);
             //if(otherCellCoord.y < 0)
             //    Debug.Log("before:" + cellCoord + ", after: " + otherCellCoord);
             return otherCellCoord;
@@ -108,6 +127,12 @@ namespace FVoxel {
         public void GetNearbyTrunksAtPos(Vector3 worldPos, Vector3 distanceLimit, List<VoxelTrunk> trunks)
         {
             trunks.Clear();
+            if (ownerEntity == null)
+            {
+                trunks.Add(this);
+                return;
+            }
+
             var cellCoord = GetCoordByWorldPos(worldPos);
             var limit = new Int3(
                     Mathf.CeilToInt(distanceLimit.x / cellSize.x),
@@ -124,7 +149,7 @@ namespace FVoxel {
                         var nearbyCellCoord = cellCoord + offset;
                         if (!data.ContainsCell(nearbyCellCoord))
                         {
-                            var neighbor = world.GetTrunk(coordinate.Offset(i,j,k));
+                            var neighbor = ownerEntity.GetTrunk(coordinate.Offset(i,j,k));
                             if (neighbor && !trunks.Contains(neighbor))
                                 trunks.Add(neighbor);
                         }

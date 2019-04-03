@@ -13,7 +13,8 @@ namespace FVoxel
         }
 
         public abstract void Solve(Mesh mesh);
-        public abstract void SolveIncrement(Mesh mesh);
+        public abstract void ResetSolver();
+
         public VoxelTrunk trunk;
         public VoxelData data;
     }

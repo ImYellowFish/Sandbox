@@ -2,34 +2,26 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// TODO:
+// 1. FBX to voxel
+// 2. UV mapping
+// 3. LOD
 namespace FVoxel {
-    public class VoxelWorld : MonoBehaviour {
-        private static VoxelWorld _instance;
-        public static VoxelWorld Instance { get { return _instance; } }
-
-        public VoxelTrunk[,,] terrainTrunks;
-        public Int3 worldDimension = new Int3(4,4,4);
-        public Material material;
+    public class VoxelEntity : MonoBehaviour {
+        public VoxelTrunk[,,] trunks;
+        public Int3 worldDimension = new Int3(4, 4, 4);
         public Int3 trunkDimension = new Int3(10, 10, 10);
         public Vector3 trunkCellSize = Vector3.one;
+        public Material material;
         
         private void Awake()
-        {
-            if (_instance != null && _instance != this) {
-                Destroy(gameObject);
-                return;
-            }
-            _instance = this;
-        }
-
-        private void Start()
         {
             InitTrunks();
         }
 
         public void InitTrunks()
         {
-            terrainTrunks = new VoxelTrunk[worldDimension.x, worldDimension.y, worldDimension.z];
+            trunks = new VoxelTrunk[worldDimension.x, worldDimension.y, worldDimension.z];
             var childCount = transform.childCount;
             for(int i = 0; i < childCount; i++)
             {
@@ -48,13 +40,13 @@ namespace FVoxel {
                         trunkObj.transform.SetParent(transform);
                         trunkObj.transform.localPosition = Vector3.Scale(trunkSize, coord.ToVector3());
                         var trunk = trunkObj.AddComponent<VoxelTrunk>();
-                        trunk.world = this;
+                        trunk.ownerEntity = this;
                         trunk.coordinate = coord;
                         trunk.dimension = trunkDimension;
                         trunk.cellSize = trunkCellSize;
                         trunk.material = material;
                         trunkObj.tag = "Voxel";
-                        terrainTrunks[i, j, k] = trunk;
+                        trunks[i, j, k] = trunk;
                     }
                 }
             }
@@ -70,7 +62,7 @@ namespace FVoxel {
             try
             {
                 if (ContainsTrunk(coord))
-                    return terrainTrunks[coord.x, coord.y, coord.z];
+                    return trunks[coord.x, coord.y, coord.z];
                 else
                     return null;
             }catch(System.IndexOutOfRangeException e)
@@ -83,7 +75,7 @@ namespace FVoxel {
         [ContextMenu("Test")]
         public void Test()
         {
-            foreach (var trunk in terrainTrunks)
+            foreach (var trunk in trunks)
             {
                 var testor = trunk.gameObject.AddComponent<VoxelTrunkTestor>();
                 if (trunk.coordinate.y == worldDimension.y - 1)
@@ -91,7 +83,7 @@ namespace FVoxel {
                 else
                     testor.GenerateFullCubeImpl();
             }
-            foreach (var trunk in terrainTrunks)
+            foreach (var trunk in trunks)
             {
                 trunk.Triangulate();
             }

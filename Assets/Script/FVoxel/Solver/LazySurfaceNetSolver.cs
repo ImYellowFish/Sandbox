@@ -8,17 +8,24 @@ using FILL_VALUE_TYPE = System.Byte;
 namespace FVoxel
 {
     /// <summary>
-    /// Naive surface net triangulator.
+    /// A modified version of the Naive Surface Net method.
+    /// When some grid gets dirty, it checks for visibility change
+    /// Supports partial triangulation of the dirty area.
     /// Reference: https://0fps.net/2012/07/10/smooth-voxel-terrain-part-1/
     /// </summary>
-    public class SurfaceNetTrigSolver : TriangulationSolver
+    public class LazySurfaceNetTrigSolver : TriangulationSolver
     {
         #region Internal variables
-        public Int3 dimension { get { return base.data.dimension; } }
+        public Int3 dimension { get { return data.dimension; } }
         private List<Vector3> vertices;
         private List<int> triangles;
         private List<Vector3> normals;
+        private bool buildFromScratch = true;
         public Dictionary<int, int> cellToVertIndexLookup;
+        public HashSet<int> newlyAddedVertices;
+
+        public int lazyRemovedVertexLimit { get { return Mathf.Max(triangles.Count / 10, 200); } }
+        public int lazyRemovedVertexCount = 0;
 
         // Lookups:
         // 8 cell vertices position arranged with vertex indices in 0~7
@@ -32,7 +39,7 @@ namespace FVoxel
         #endregion
 
         #region Interface
-        public SurfaceNetTrigSolver(VoxelTrunk trunk): base(trunk)
+        public LazySurfaceNetTrigSolver(VoxelTrunk trunk): base(trunk)
         {
             // Stores all the lookups
             var lookups = SurfaceNetTrigLookups.Instance;
@@ -45,6 +52,7 @@ namespace FVoxel
             triangles = new List<int>();
             normals = new List<Vector3>();
             cellToVertIndexLookup = new Dictionary<int, int>();
+            newlyAddedVertices = new HashSet<int>();
         }
 
         public override void ResetSolver()
@@ -60,10 +68,34 @@ namespace FVoxel
 
         public override void Solve(Mesh mesh)
         {
+            if (buildFromScratch || lazyRemovedVertexCount >= lazyRemovedVertexLimit)
+            {
+                SolveFromScratch(mesh);
+                lazyRemovedVertexCount = 0;
+            }
+            else
+            {
+                SolveLazy(mesh);
+            }
+
+            buildFromScratch = false;
+            mesh.Clear();
+            mesh.SetVertices(vertices);
+            mesh.SetTriangles(triangles, 0);
+            mesh.SetNormals(normals);
+
+            //Debug.Log("Lazy vert count:" + lazyRemovedVertexCount);
+        }
+
+        #endregion
+
+        #region Calculation
+        private void SolveFromScratch(Mesh mesh)
+        {
             ResetSolver();
             AddCrossBoundaryVertices();
             Int3 solveRegionMin = Int3.Zero;
-            Int3 solveRegionMax = dimension.Offset(-1,-1,-1);
+            Int3 solveRegionMax = dimension.Offset(-1, -1, -1);
 
             for (int i = solveRegionMin.x; i <= solveRegionMax.x; i++)
             {
@@ -75,18 +107,45 @@ namespace FVoxel
                     }
                 }
             }
-
-            mesh.Clear();
-            mesh.SetVertices(vertices);
-            mesh.SetTriangles(triangles, 0);
-            mesh.SetNormals(normals);
         }
 
-        #endregion
+        private void SolveLazy(Mesh mesh)
+        {
+            // record newly added vertices
+            newlyAddedVertices.Clear();
+            Int3 solveRegionMin = Int3.Max(data.dirtyRegionMin.Offset(-1, -1, -1), Int3.Zero);
+            Int3 solveRegionMax = Int3.Min(data.dirtyRegionMax.Offset(1, 1, 1), dimension.Offset(-1, -1, -1));
+            //Debug.Log("Solve region: " + solveRegionMin + "," + solveRegionMax);
 
-        #region Calculation
+            // Remove old vertices first
+            for (int i = solveRegionMin.x; i <= solveRegionMax.x; i++)
+            {
+                for (int j = solveRegionMin.y; j <= solveRegionMax.y; j++)
+                {
+                    for (int k = solveRegionMin.z; k <= solveRegionMax.z; k++)
+                    {
+                        RemoveDeprecatedCellLazy(new Int3(i, j, k));
+                    }
+                }
+            }
+
+            // Add new vertices
+            for (int i = solveRegionMin.x; i <= solveRegionMax.x; i++)
+            {
+                for (int j = solveRegionMin.y; j <= solveRegionMax.y; j++)
+                {
+                    for (int k = solveRegionMin.z; k <= solveRegionMax.z; k++)
+                    {
+                        UpdateOrAddNewCellLazy(new Int3(i, j, k));
+                    }
+                }
+            }
+        }
+
+
         /// <summary>
-        /// Calculate vertex and triangles for the given cell
+        /// Calculate vertex and triangles for the given cell.
+        /// Does not use history data.
         /// </summary>
         private void SolveCell(Int3 cellCoord)
         {
@@ -98,38 +157,122 @@ namespace FVoxel
                 // Empty cell, skip.
                 return;
             }
-            
+
+            // Calculate vertex pos and normal
+            Vector3 vertPos, vertNormal;
+            CalculateAndInsertCellVertex(cellCoord, cellFillsMask, cellFillValues, out vertPos, out vertNormal);
+
+            // Store vertex index
+            SetVertIndexAtCoord(cellCoord, vertices.Count);
+
             // Insert vertex
-            CalculateAndInsertCellVertex(cellCoord, cellFillsMask, cellFillValues);
+            vertices.Add(vertPos);
+            normals.Add(vertNormal);
+
             // Insert triangles
-            ConnectCellVertexWithQuad(cellCoord, cellFillsMask, cellFillValues);
+            AddAllCellTriangles(cellCoord, cellFillsMask, cellFillValues);
+        }
+
+        /// <summary>
+        /// If this cell previously had a vertex but is now empty,
+        /// perform a lazy remove on the old vertex.
+        /// </summary>
+        private void RemoveDeprecatedCellLazy(Int3 cellCoord)
+        {
+            // Get cell fill mask value
+            FILL_VALUE_TYPE[] cellFillValues = new FILL_VALUE_TYPE[8];
+            int cellFillsMask = GetCellFillsAndMask(cellCoord, cellFillValues);
+            int cellKey = GetVertIndexBufferKey(cellCoord);
+            if (cellToVertIndexLookup.ContainsKey(cellKey) &&
+                (cellFillsMask == 0 || cellFillsMask == 0xFF))
+            {
+                // This cell previously had a vertex but is now empty.
+                // Perform a lazy remove on the old vertex.
+                var vertIndex = cellToVertIndexLookup[cellKey];
+                cellToVertIndexLookup.Remove(cellKey);
+                // Record lazy removed vertex count
+                // When there are too many abundant vertices, perform SolveFromScratch() to cleanup
+                lazyRemovedVertexCount++;
+                // Do not remove from vertices array. Only remove the triangles.
+                for (int i = triangles.Count - 3; i >= 0; i -= 3)
+                {
+                    if(triangles[i] == vertIndex ||
+                        triangles[i+1] == vertIndex ||
+                            triangles[i+2] == vertIndex)
+                    {
+                        triangles.RemoveRange(i, 3);
+                    }
+                }
+            }
+            
         }
         
+        /// <summary>
+        /// If this cell is previously empty but now contains a vertex
+        /// Add new vertex to the mesh.
+        /// </summary>
+        private void UpdateOrAddNewCellLazy(Int3 cellCoord)
+        {
+            // Get cell fill mask value
+            FILL_VALUE_TYPE[] cellFillValues = new FILL_VALUE_TYPE[8];
+            int cellFillsMask = GetCellFillsAndMask(cellCoord, cellFillValues);
+            int cellKey = GetVertIndexBufferKey(cellCoord);
+            if (cellFillsMask == 0 || cellFillsMask == 0xFF)
+                // Skip empty cells
+                return;
+
+            // Calculate vertex pos and normal
+            Vector3 vertPos, vertNormal;
+            CalculateAndInsertCellVertex(cellCoord, cellFillsMask, cellFillValues, out vertPos, out vertNormal);
+
+            if (!cellToVertIndexLookup.ContainsKey(cellKey))
+            {
+                // This cell is previously empty, but now it contains a vertex.
+                // Add this vertex to the mesh.
+
+                // Store vertex index
+                SetVertIndexAtCoord(cellCoord, vertices.Count);
+                newlyAddedVertices.Add(vertices.Count);
+
+                // Insert vertex
+                vertices.Add(vertPos);
+                normals.Add(vertNormal);
+
+                // Insert triangles
+                AddAllCellTriangles(cellCoord, cellFillsMask, cellFillValues);
+            }
+            else
+            {
+                // This cell is previously occupied. Its vertex pos needs to be updated.
+                var vertIndex = cellToVertIndexLookup[cellKey];
+                vertices[vertIndex] = vertPos;
+                normals[vertIndex] = vertNormal;
+
+                // Update its surrounding triangles.
+                UpdateCellTriangles(cellCoord, cellFillsMask, cellFillValues);
+            }
+        }
+
         /// <summary>
         /// Calculate intersection points on this cell, and use their averaged position as the new mesh vertex.
         /// Insert this vertex to buffer, and compute other vertex info (normal & uv)
         /// </summary>
-        private void CalculateAndInsertCellVertex(Int3 cellCoord, int cellFillsMask, FILL_VALUE_TYPE[] cellFillValues)
+        private void CalculateAndInsertCellVertex(Int3 cellCoord, int cellFillsMask, FILL_VALUE_TYPE[] cellFillValues, out Vector3 vertPos, out Vector3 vertNormal)
         {
             // Intersections exist
             // Should add a mesh vertex in this cell
             var intersections = intersectionVertLookup[cellFillsMask];
 
-            // store vertex index
-            SetVertIndexAtCoord(cellCoord, vertices.Count);
-
             // Calculate mesh vertex position
             Vector3 averagedLocalPos = ComputeAverageCellIntersectionPos(cellFillValues, intersections);
-            Vector3 averagedWorldPos = Vector3.Scale(averagedLocalPos, data.cellSize) + GetCellOriginPos(cellCoord);
-            vertices.Add(averagedWorldPos);
-
-            normals.Add(ComputeCellNormal(cellCoord, cellFillValues, averagedLocalPos)); 
+            vertPos = Vector3.Scale(averagedLocalPos, data.cellSize) + GetCellOriginPos(cellCoord);
+            vertNormal = ComputeCellNormal(cellCoord, cellFillValues, averagedLocalPos);
         }
         
         /// <summary>
         /// Connect the cell vertex to adjacent non-empty cells.
         /// </summary>
-        private void ConnectCellVertexWithQuad(Int3 cellCoord, int cellFillsMask, FILL_VALUE_TYPE[] cellFillValues)
+        private void AddAllCellTriangles(Int3 cellCoord, int cellFillsMask, FILL_VALUE_TYPE[] cellFillValues)
         {
             // Add triangles in three dimensions
             for (int axis = 0; axis < 3; axis++)
@@ -157,6 +300,42 @@ namespace FVoxel
                 else
                 {
                     AddQuadToTriangleBuffer(vi0, vi3, vi2, vi1);
+                }
+            }
+        }
+
+        private void UpdateCellTriangles(Int3 cellCoord, int cellFillsMask, FILL_VALUE_TYPE[] cellFillValues)
+        {
+            // Add triangles in three dimensions
+            for (int axis = 0; axis < 3; axis++)
+            {
+                // If no intersection along this axis, skip.
+                if (intersectionAxisLookup[cellFillsMask, axis] == 0)
+                    continue;
+                int axis_1 = (axis + 1) % 3;
+                int axis_2 = (axis + 2) % 3;
+
+                var vi0 = GetVertIndexAtCoord(cellCoord);
+                var vi1 = GetVertIndexAtCoord(cellCoord.Offset(axis_1, -1));
+                var vi2 = GetVertIndexAtCoord(cellCoord.Offset(axis_1, -1).Offset(axis_2, -1));
+                var vi3 = GetVertIndexAtCoord(cellCoord.Offset(axis_2, -1));
+                if (vi0 < 0 || vi1 < 0 || vi2 < 0 || vi3 < 0)
+                {
+                    continue;
+                }
+                // For old vertices, only add triangles which contain newly created vertices.
+                if (newlyAddedVertices.Contains(vi0) || newlyAddedVertices.Contains(vi1) ||
+                    newlyAddedVertices.Contains(vi2) || newlyAddedVertices.Contains(vi3))
+                {
+                    // Flip faces based on corner value.
+                    if ((cellFillsMask & 1) == 1)
+                    {
+                        AddQuadToTriangleBuffer(vi0, vi1, vi2, vi3);
+                    }
+                    else
+                    {
+                        AddQuadToTriangleBuffer(vi0, vi3, vi2, vi1);
+                    }
                 }
             }
         }
@@ -361,7 +540,7 @@ namespace FVoxel
             if (otherTrunk == null)
                 return;
             // Get boundary vertex info
-            var otherSolver = otherTrunk.solver as SurfaceNetTrigSolver;
+            var otherSolver = otherTrunk.solver as LazySurfaceNetTrigSolver;
             var otherVertIndex = otherSolver.GetVertIndexAtCoord(otherCoord);
             if (otherVertIndex < 0)
                 // No vertex at this cell, skip.

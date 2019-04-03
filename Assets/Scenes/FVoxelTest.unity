@@ -197,29 +197,38 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   dimension:
-    x: 10
-    y: 10
-    z: 10
+    x: 20
+    y: 20
+    z: 20
   cellSize: {x: 0.1, y: 0.1, z: 0.1}
   data:
-    fillThreshold: 0
     trunk: {fileID: 0}
     dimension:
       x: 0
       y: 0
       z: 0
     cellSize: {x: 0, y: 0, z: 0}
-    isDirty: 0
+    dirtyRegionMin:
+      x: 0
+      y: 0
+      z: 0
+    dirtyRegionMax:
+      x: 0
+      y: 0
+      z: 0
+    fillThreshold: 0
   material: {fileID: 2100000, guid: b9dce8804cbd34f4cb7d2387e057788b, type: 2}
+  solverType: 2
   meshRenderer: {fileID: 0}
   meshFilter: {fileID: 0}
   meshCollider: {fileID: 0}
-  world: {fileID: 0}
+  ownerEntity: {fileID: 0}
   coordinate:
     x: 0
     y: 0
     z: 0
   triangleCount: 0
+  vertexCount: 0
   mesh: {fileID: 0}
 --- !u!4 &876917421
 Transform:
@@ -405,15 +414,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   worldDimension:
-    x: 4
-    y: 4
-    z: 4
-  material: {fileID: 2100000, guid: 40a93bbe68a92514e9299cf441685606, type: 2}
+    x: 1
+    y: 1
+    z: 1
   trunkDimension:
     x: 10
     y: 10
     z: 10
   trunkCellSize: {x: 0.1, y: 0.1, z: 0.1}
+  material: {fileID: 2100000, guid: 40a93bbe68a92514e9299cf441685606, type: 2}
 --- !u!4 &1572749999
 Transform:
   m_ObjectHideFlags: 0
